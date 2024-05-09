@@ -2,6 +2,7 @@
 #include <math.h>
 #include <string.h>
 #include <stdlib.h>
+#include <time.h>
 
 #define strKota 25
 #define r 6371
@@ -84,8 +85,11 @@ int main()
         // Jika kota diinput ada (Nanti ini diganti program TSP sesuai algoritma masing-masing)
         // Isi else ini dengan program TSP kalian untuk nyari jarak terdekat nya ya, bebas mau gimana, ini contoh hitung doang
         else {
+            // Waktu mulai mencari solusi
+            clock_t start_time = clock();
             double sum = 0;
             printf("\nBest route : ");
+            // Ganti proses TSP Algoritma Masing-masing ya bawah ini
             for (int j = 0;j < i+1;j++) {
                 // Alokasi memori untuk menampung jarak terdekat antar kota
                 distance = (double*) malloc ((i+1)*sizeof(double));
@@ -96,8 +100,16 @@ int main()
                 distance[3] = calcDistance(latitude[1],latitude[0],longitude[1],longitude[0]);
                 sum += distance[j];
             }
+            // Waktu selesai mencari solusi
+            clock_t end_time = clock();
+
+            // Print route dan jarak
             printf("\n%s -> %s -> %s -> %s -> %s\n",kota[0],kota[2],kota[3],kota[1],kota[0]);
             printf("Jarak terdekat : %f\n",sum);
+
+            // Menghitung waktu yang diperlukan
+            double execution_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
+            printf("Time elapsed : ");
         }
     }
 }
