@@ -48,37 +48,40 @@ int main()
 
         char temp[40];
         // Deklarasi variabel untuk operasi ekstrak data csv
-        int valid = 0;int i = 0;
+        int valid = 0;int max_index = 0;
         // Ekstrak data csv
         while(fgets(temp,40,file)) {
             // Alokasi memori untuk kota,latitude,longitude
-            if (i == 0) {
+            if (max_index == 0) {
                 kota = (char**) malloc (sizeof(char*));
-                kota[i] = (char*) malloc (strKota * sizeof(char));
+                kota[max_index] = (char*) malloc (strKota * sizeof(char));
                 latitude = (double*) malloc (sizeof(double));
                 longitude = (double*) malloc (sizeof(double));
             }        
             else {
-                kota = (char**) realloc (kota, (i+1)*sizeof(char*));
-                kota[i] = (char*) malloc (strKota * sizeof(char));
-                latitude = (double*) realloc (latitude, (i+1)*sizeof(double));
-                longitude = (double*) realloc (longitude, (i+1)*sizeof(double));
+                kota = (char**) realloc (kota, (max_index+1)*sizeof(char*));
+                kota[max_index] = (char*) malloc (strKota * sizeof(char));
+                latitude = (double*) realloc (latitude, (max_index+1)*sizeof(double));
+                longitude = (double*) realloc (longitude, (max_index+1)*sizeof(double));
             }
 
             token = strtok(temp,",");
-            strcpy(kota[i],token);
+            strcpy(kota[max_index],token);
             // Mengecek nama kota ada di list atau tidak
             if (strcmp(token,nama_kota) == 0) {valid = 1;}
 
             token = strtok(NULL,",");
-            latitude[i] = degtoRad(atof(token));
+            latitude[max_index] = degtoRad(atof(token));
             token = strtok(NULL,"\n");
-            longitude[i] = degtoRad(atof(token));
-            i++;
+            longitude[max_index] = degtoRad(atof(token));
+            max_index++;
         }
 
         // Data kosong
-        if (i == 0) {printf("\nFile yang diberikan kosong.\n");}
+        if (max_index == 0) {printf("\nFile yang diberikan kosong.\n");}
+
+        // Data hanya 1
+        if (max_index == 1) {printf("\nKota hanya satu, tidak bisa dioperasikan.\n");}
         
         // Jika kota diinput tidak ada
         if (!valid) {printf("\nKota yang diinput tidak ada dalam file.\n");}
@@ -90,9 +93,9 @@ int main()
             double sum = 0;
             printf("\nBest route : ");
             // Ganti proses TSP Algoritma Masing-masing ya bawah ini
-            for (int j = 0;j < i+1;j++) {
+            for (int j = 0;j < max_index+1;j++) {
                 // Alokasi memori untuk menampung jarak terdekat antar kota
-                distance = (double*) malloc ((i+1)*sizeof(double));
+                distance = (double*) malloc ((max_index+1)*sizeof(double));
                 // Jarak dalam km
                 distance[0] = calcDistance(latitude[0],latitude[2],longitude[0],longitude[2]);
                 distance[1] = calcDistance(latitude[2],latitude[3],longitude[2],longitude[3]);
@@ -109,7 +112,7 @@ int main()
 
             // Menghitung waktu yang diperlukan
             double execution_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
-            printf("Time elapsed : ");
+            printf("Time elapsed : %f s",execution_time);
         }
     }
 }
