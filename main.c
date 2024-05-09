@@ -36,9 +36,9 @@ int main()
     token = strtok(NULL,"\n");
     
     // Jika format bukan csv
-    if (strcmp(token,"csv") != 0) {printf("Format file bukan csv.\n");}
+    if (strcmp(token,"csv") != 0) {printf("\nFormat file bukan csv.\n");}
     // Jika file tidak ada
-    else if (file == NULL) {printf("File yang diberikan tidak ada.\n");}
+    else if (file == NULL) {printf("\nFile yang diberikan tidak ada.\n");}
     else {
         // Input nama kota
         char nama_kota[strKota];
@@ -77,15 +77,16 @@ int main()
         }
 
         // Data kosong
-        if (i == 0) {printf("File yang diberikan kosong.\n");}
+        if (i == 0) {printf("\nFile yang diberikan kosong.\n");}
         
         // Jika kota diinput tidak ada
-        if (!valid) {printf("Kota yang diinput tidak ada dalam file.\n");}
+        if (!valid) {printf("\nKota yang diinput tidak ada dalam file.\n");}
         // Jika kota diinput ada (Nanti ini diganti program TSP sesuai algoritma masing-masing)
         // Isi else ini dengan program TSP kalian untuk nyari jarak terdekat nya ya, bebas mau gimana, ini contoh hitung doang
         else {
             double sum = 0;
-            for (int j = 0;j < 4;j++) {
+            printf("\nBest route : ");
+            for (int j = 0;j < i+1;j++) {
                 // Alokasi memori untuk menampung jarak terdekat antar kota
                 distance = (double*) malloc ((i+1)*sizeof(double));
                 // Jarak dalam km
@@ -95,6 +96,7 @@ int main()
                 distance[3] = calcDistance(latitude[1],latitude[0],longitude[1],longitude[0]);
                 sum += distance[j];
             }
+            printf("\n%s -> %s -> %s -> %s -> %s\n",kota[0],kota[2],kota[3],kota[1],kota[0]);
             printf("Jarak terdekat : %f\n",sum);
         }
     }
