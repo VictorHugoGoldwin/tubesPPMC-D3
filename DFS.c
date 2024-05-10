@@ -1,3 +1,12 @@
+/*EL2208 Praktikum Pemecahan Masalah dengan C 2023/2024
+*Modul            : 9 - Tugas Besar
+*Hari dan Tanggal : Jumat, 10 Mei 2024
+*Nama (NIM)       : Victor Hugo Goldwin (13222085)
+*Asisten (NIM)    : Isnaini Azhar Ramadhan Wijaya (18321016)
+*Nama File        : DFS.c
+*Deskripsi        : Membuat program menyelesaikan Travelling Salesman Problem dengan DFS (Mix Bruteforce)
+*/
+
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
@@ -63,8 +72,10 @@ int main()
     token = strtok(nama_file,".");
     token = strtok(NULL,"\n");
     
+    // Jika input bukan format file (Tanpa ".")
+    if (token == NULL) printf("\nInput bukan file.\n");
     // Jika format bukan csv
-    if (strcmp(token,"csv") != 0) {printf("\nFormat file bukan csv.\n");}
+    else if (strcmp(token,"csv") != 0) {printf("\nFormat file bukan csv.\n");}
     // Jika file tidak ada
     else if (file == NULL) {printf("\nFile yang diberikan tidak ada.\n");}
     else {
@@ -114,24 +125,26 @@ int main()
         if (max_index == 0) {printf("\nFile yang diberikan kosong.\n");}
 
         // Data hanya 1
-        if (max_index == 1) {printf("\nKota hanya satu, tidak bisa dioperasikan.\n");}
+        else if (max_index == 1) {printf("\nKota hanya satu, tidak bisa dioperasikan.\n");}
         
         // Jika kota diinput tidak ada
-        if (!valid) {printf("\nKota yang diinput tidak ada dalam file.\n");}
-        // Jika kota diinput ada (Nanti ini diganti program TSP sesuai algoritma masing-masing)
-        // Isi else ini dengan program TSP kalian untuk nyari jarak terdekat nya ya, bebas mau gimana, ini contoh hitung doang
+        else if (!valid) {printf("\nKota yang diinput tidak ada dalam file.\n");}
+
         else {
             // Waktu mulai mencari solusi
             clock_t start_time = clock();
 
-            // Ganti proses TSP Algoritma Masing-masing ya bawah ini
+            // Deklarasi Variabel untuk DFS
             int path[max_index];int visited[max_index];int short_path[4];
             for (int i = 0; i < max_index;i++) {visited[i] = 0;}
+
+            // Rekursif DFS-Bruteforce
             DFS(max_index,start_index,start_index,0,path,short_path,visited,latitude,longitude,0.0,kota);
             
             // Waktu selesai mencari solusi
             clock_t end_time = clock();
 
+            // Output path
             printf("\nBest route :\n");
             for (int i = 0;i < max_index;i++) {
                 printf("%s -> ",kota[short_path[i]]);

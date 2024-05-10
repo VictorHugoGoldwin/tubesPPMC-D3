@@ -36,8 +36,10 @@ int main()
     token = strtok(nama_file,".");
     token = strtok(NULL,"\n");
     
+    // Jika input bukan format file (Tidak ada ".")
+    if (token == NULL) {printf("\nInput bukan file.\n");}
     // Jika format bukan csv
-    if (strcmp(token,"csv") != 0) {printf("\nFormat file bukan csv.\n");}
+    else if (strcmp(token,"csv") != 0) {printf("\nFormat file bukan csv.\n");}
     // Jika file tidak ada
     else if (file == NULL) {printf("\nFile yang diberikan tidak ada.\n");}
     else {
@@ -46,11 +48,11 @@ int main()
         printf("Starting point : ");
         scanf("%s",nama_kota);
 
-        char temp[40];
+        char temp[50];
         // Deklarasi variabel untuk operasi ekstrak data csv
         int valid = 0;int max_index = 0;
         // Ekstrak data csv
-        while(fgets(temp,40,file)) {
+        while(fgets(temp,50,file)) {
             // Alokasi memori untuk kota,latitude,longitude
             if (max_index == 0) {
                 kota = (char**) malloc (sizeof(char*));
@@ -81,10 +83,10 @@ int main()
         if (max_index == 0) {printf("\nFile yang diberikan kosong.\n");}
 
         // Data hanya 1
-        if (max_index == 1) {printf("\nKota hanya satu, tidak bisa dioperasikan.\n");}
+        else if (max_index == 1) {printf("\nKota hanya satu, tidak bisa dioperasikan.\n");}
         
         // Jika kota diinput tidak ada
-        if (!valid) {printf("\nKota yang diinput tidak ada dalam file.\n");}
+        else if (!valid) {printf("\nKota yang diinput tidak ada dalam file.\n");}
         // Jika kota diinput ada (Nanti ini diganti program TSP sesuai algoritma masing-masing)
         // Isi else ini dengan program TSP kalian untuk nyari jarak terdekat nya ya, bebas mau gimana, ini contoh hitung doang
         else {
