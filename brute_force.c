@@ -126,8 +126,10 @@ int main() {
     double minDist = DBL_MAX;
 
     permute(cities, path, minPath, &minDist, 1, n-1);
+    // elapsed time calc
     clock_t end_time = clock();
     double execution_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
+
     printf("Shortest path: %s", cities[minPath[0]].name);
     for (int i = 1; i < n; i++) {
         printf(" -> %s", cities[minPath[i]].name);
@@ -135,6 +137,7 @@ int main() {
     printf(" -> %s", start);
     // add the distance from the last city back to the starting city
     printf("\nTotal distance: %.2f\n", minDist + distance(cities[minPath[n-1]], cities[startIndex]));
-
+    printf("Time elapsed : %.3f s",execution_time);
     return 0;
 }
+
