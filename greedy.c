@@ -77,15 +77,26 @@ int main() {
 
     // buka file
     FILE* file = fopen(filename, "r");
-    if (file == NULL) {
-        printf("Gagal membuka file %s.\n", filename);
-        return 1;
-    }
 
     // Mengambil bagian extension/format file user
     char* token;
     token = strtok(filename,".");
     token = strtok(NULL,"\n");
+    
+    // Jika input bukan format file (Tanpa ".")
+    if (token == NULL) {
+        printf("\nInput bukan file.\n");
+        return 1;
+    }
+    // Jika format bukan csv
+    else if (strcmp(token,"csv") != 0) {
+        printf("\nFormat file bukan csv.\n");
+        return 1;
+    }
+    // Jika file tidak ada
+    else if (file == NULL) {
+        printf("\nFile yang diberikan tidak ada.\n");
+    }
 
         // Input nama kota
         char nama_kota[strKota];
