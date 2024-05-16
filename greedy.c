@@ -1,3 +1,12 @@
+/*EL2208 Praktikum Pemecahan Masalah dengan C 2023/2024
+*Modul            : 9 - Tugas Besar
+*Hari dan Tanggal : Jumat, 10 Mei 2024
+*Nama (NIM)       : Filbert Garciano (13222086)
+*Asisten (NIM)    : Isnaini Azhar Ramadhan Wijaya (18321016)
+*Nama File        : greedy.c
+*Deskripsi        : Membuat program menyelesaikan Travelling Salesman Problem dengan Greedy Algorithm
+*/
+
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
