@@ -27,7 +27,7 @@ double calcDistance(double lat1, double lat2, double long1, double long2)
     return 2*r*asin(sqrt(pow(sin((lat1-lat2)/2),2) + cos(lat1)*cos(lat2)*pow(sin((long1-long2)/2),2)));
 }
 
-void DFS(int max_index,int start_index,int current,int depth,int path[],int short_path[],int visited[],double latitude[],double longitude[],double distance,char** kota) 
+void DFS(int max_index,int start_index,int current,int depth,int path[],int short_path[],int visited[],double latitude[],double longitude[],double distance) 
 {
     visited[current] = 1;
     path[depth] = current;
@@ -43,12 +43,11 @@ void DFS(int max_index,int start_index,int current,int depth,int path[],int shor
         }
     }
     else {
-        double temp_distance = distance;
+        // Iterasi rekursif berbagai rute
         for (int nextCity = 0; nextCity < max_index; nextCity++) {
-            if (!visited[nextCity] && distance + calcDistance(latitude[current],latitude[nextCity],longitude[current],longitude[nextCity]) < minDist) {
-                distance += calcDistance(latitude[current],latitude[nextCity],longitude[current],longitude[nextCity]);
-                DFS(max_index,start_index,nextCity,depth + 1,path,short_path,visited,latitude,longitude,distance,kota);
-                distance = temp_distance;
+            double next_dist = calcDistance(latitude[current],latitude[nextCity],longitude[current],longitude[nextCity]);
+            if (!visited[nextCity] && distance + next_dist < minDist) {
+                DFS(max_index,start_index,nextCity,depth + 1,path,short_path,visited,latitude,longitude,distance + next_dist);
             }
         }
     }
@@ -135,11 +134,11 @@ int main()
             clock_t start_time = clock();
 
             // Deklarasi Variabel untuk DFS
-            int path[max_index];int visited[max_index];int short_path[4];
+            int path[max_index];int visited[max_index];int short_path[max_index];
             for (int i = 0; i < max_index;i++) {visited[i] = 0;}
 
             // Rekursif DFS-Bruteforce
-            DFS(max_index,start_index,start_index,0,path,short_path,visited,latitude,longitude,0.0,kota);
+            DFS(max_index,start_index,start_index,0,path,short_path,visited,latitude,longitude,0.0);
             
             // Waktu selesai mencari solusi
             clock_t end_time = clock();
