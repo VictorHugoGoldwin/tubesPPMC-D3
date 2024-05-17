@@ -31,12 +31,15 @@ void swap(int* path, int i, int j) {
     path[i] = path[j];
     path[j] = temp;
 }
+// permute(cities, path, minPath, &minDist, 1, n-1);
 void permute(City* cities, int* path, int* minPath, double* minDist, int l, int r) {
     if (l == r) {
         double dist = 0;
         for (int i = 0; i < r; i++) {
             dist += distance(cities[path[i]], cities[path[i+1]]);
         }
+        // Add the distance from the last city back to the starting city
+        dist += distance(cities[path[r]], cities[path[0]]);
         if (dist < *minDist) {
             *minDist = dist;
             for (int i = 0; i <= r; i++) {
@@ -52,6 +55,12 @@ void permute(City* cities, int* path, int* minPath, double* minDist, int l, int 
     }
 }
 
+int has_csv_extension(char* filename) {
+    char* extension = strrchr(filename, '.'); // find the last occurrence of '.'
+    if (!extension || extension == filename) return 0; // if '.' not found or it's the first character
+    return strcmp(extension, ".csv") == 0; // compare with ".csv"
+}
+
 int main() {
     char filename[50];
     printf("Enter the filename: ");
@@ -61,6 +70,12 @@ int main() {
     if (len > 0 && filename[len - 1] == '\n') {
     filename[len - 1] = '\0';
     }
+
+    if (!has_csv_extension(filename)) {
+        printf("File bukan csv");
+        return 1;
+    }
+
     FILE* file = fopen(filename, "r");
 
     if (!file) {
@@ -102,10 +117,13 @@ int main() {
     if (len2 > 0 && start[len2 - 1] == '\n') {
     start[len2 - 1] = '\0';
     }
+    
     int n = index;
     int startIndex = -1;
+
     // start waktu
     clock_t start_time = clock();
+
     for (int i = 0; i < n; i++) {
         if (strcmp(cities[i].name, start) == 0) {
             startIndex = i;
@@ -136,7 +154,8 @@ int main() {
     }
     printf(" -> %s", start);
     // add the distance from the last city back to the starting city
-    printf("\nTotal distance: %.2f\n", minDist + distance(cities[minPath[n-1]], cities[startIndex]));
+    //printf("\nTotal distance: %.2f\n", minDist + distance(cities[minPath[n-1]], cities[startIndex]));
+    printf("\nTotal distance: %.2f km\n", minDist);
     printf("Time elapsed : %.3f s",execution_time);
     return 0;
 }
