@@ -200,20 +200,12 @@ void copyArrtoArr(int **pBest, int *pCurr, int size){
     }
 }
 
-void combineVelocities(int (*combined)[2], int *num_combined, int (*velocity1)[2], int num_swaps1, int (*velocity2)[2], int num_swaps2) {
+void combineVelocities(int (*combined)[2], int *num_combined, int (*velocity1)[2], int num_swaps1) {
     // Menambah current particle's velocity swaps
     *num_combined = 0;
     for (int i = 0; i < num_swaps1; i++) {
         combined[*num_combined][0] = velocity1[i][0];
         combined[*num_combined][1] = velocity1[i][1];
-        (*num_combined)++;
-    }
-
-    // Menambah velocity swaps dari velocity2/velocity baru
-    *num_combined = 0;
-    for (int i = 0; i < num_swaps2; i++) {
-        combined[*num_combined][0] = velocity2[i][0];
-        combined[*num_combined][1] = velocity2[i][1];
         (*num_combined)++;
     }
 }
@@ -232,7 +224,7 @@ void getSwaps(int *target, int *current, int (*swaps)[2], int *num_swaps, int si
             for (int j = i+1; j < size; j++) {
                 if (temp[j] == target[i]) {
                     // Lakukan Swap
-                    swapping(temp, j, i);
+                    swapping(temp, i, j);
                     
                     // Catat hasil city swapping
                     // Jika jumlah swaps belum melebihi ukuran array of velocity, cata city swapping
@@ -304,21 +296,26 @@ void initParticles(Particle **p, int size, int idAwal){
         for(int j = 0; j < size; j++){
             (*p)[i].pos[j] = j;
         }
-        // Mencari posisi ID awal kota pada array of position partikel
-        int idAwalPos;
+
+        // Iterasi shuffle posisi kota yang dapat dikunjungi oleh setiap partikel dan
+        // memastikan tidak ada ID kota yang sama dengan ID kota awal yang diinput User
+        for(int j = 0; j <  size; j++){
+            // Assignment dilakukan dengan menukar posisi kota-kota
+            int swapA, swapB;
+            swapA = (rand() % (size-1)) + 1;
+            swapB = (rand() % (size-1)) + 1;
+            while(swapA == swapB){
+                swapB = (rand() % (size-1)) + 1;
+            }
+            swapping((*p)[i].pos, swapA, swapB);
+        }
+
+        // Memastikan initial city berada di elemen pertama
         for(int j = 0; j < size; j++){
             if((*p)[i].pos[j] == idAwal){
-                idAwalPos = j;
+                swapping((*p)[i].pos, 0, j);
+                break;
             }
-        }
-        // Swap ID kota awal ke posisi pertama
-        swapping((*p)[i].pos, idAwalPos, 0);
-        // Iterasi shuffle posisi kota yang dapat dikunjungi oleh setiap partikel
-        // Memastikan tidak ada ID kota yang sama dengan ID kota awal yang diinput User
-        for(int j = 1; j <  size; j++){
-            // Assignment dilakukan dengan menukar posisi kota-kota
-            // Menghasilkan ID secara random
-            randomPos((*p)[i].pos, idAwal, size);
         }
 
         // Inisiasi personal best position partikel dengan initial position partikel
@@ -338,6 +335,7 @@ void tspPSO(City *arrC, double **arrD, char* kota_awal, int size){
     Particle gBest;
     int newVelG[size][2];
     int gBestDiff[size][2];
+    int gBBestDiff[size][2];
 
     // Mendefinisikan iterasi maksimal dan array untuk menyimpan fitness
     // Maksimal iterasi bisa diubah-ubah
@@ -422,7 +420,8 @@ void tspPSO(City *arrC, double **arrD, char* kota_awal, int size){
                 randomPos(currG.pos, idKotaAwal, size);
                 currG.fitnessVal = evalFitness(currG.pos, arrD, size);
                 if(currG.fitnessVal < gBest.fitnessVal){
-                    // Copy current global best ke partikel global best sebelum di-random
+                    // Copy current global best ke partikel global best sebelum di-random jika 
+                    // yang sudah di-random lebih kecil
                     gBest.fitnessVal = currG.fitnessVal;
                     copyArrtoArr(&(gBest.bestPos), currG.pos, size);
                 }
@@ -431,22 +430,20 @@ void tspPSO(City *arrC, double **arrD, char* kota_awal, int size){
                 // Inisiasi variabel-variabel untuk velocity update
                 int newSwapsG = 0;
                 int gBestSwaps = 0;
+                int gBBestSwaps = 0;
                 for(int j = 0; j < size; j++){
-                    newVelG[j][0] = gBestDiff[j][0] = 0;
-                    newVelG[j][1] = gBestDiff[j][1] = 0;
+                    newVelG[j][0] = gBestDiff[j][0] = gBBestDiff[j][0] = 0;
+                    newVelG[j][1] = gBestDiff[j][1] = gBBestDiff[j][1] = 0;
                 }
 
                 // Lakukan swapping cities berdasarkan global best's position 
-                // Mencari pasangan cities yang mungkin di-swap berdasarkan global best position
+                // Mencari pasangan cities yang mungkin di-swap berdasarkan global best position dan personal best dari global best
                 getSwaps(gBest.pos, arrParticle[i].pos, gBestDiff, &gBestSwaps, size);
+                getSwaps(gBest.bestPos, gBest.pos, gBBestDiff, &gBBestSwaps, size);
 
-                // Menggabung cities swaps personal best dan cities swaps global best
-                combineVelocities(newVelG, &newSwapsG, arrParticle[i].velocity, arrParticle[i].numSwaps, gBestDiff, gBestSwaps);
-
-                // Assign jumlah cities swaps yang harus dilakukan ke current particle
+                // Menggabung dan assign cities swaps global best position
+                combineVelocities(newVelG, &newSwapsG, gBestDiff, gBestSwaps);
                 arrParticle[i].numSwaps = newSwapsG;
-
-                // Assign cities swaps ke current particle's velocity
                 for(int j = 0; j < newSwapsG; j++){
                     arrParticle[i].velocity[j][0] = newVelG[j][0];
                     arrParticle[i].velocity[j][1] = newVelG[j][1];
@@ -454,7 +451,18 @@ void tspPSO(City *arrC, double **arrD, char* kota_awal, int size){
 
                 // Lakukan cities swaps
                 applySwaps(arrParticle[i].pos, arrParticle[i].velocity, arrParticle[i].numSwaps);
-            }   
+
+                // Menggabung dan assign cities swaps global best's personal best position
+                combineVelocities(newVelG, &newSwapsG, gBBestDiff, gBBestSwaps);
+                arrParticle[i].numSwaps = newSwapsG;
+                for(int j = 0; j < newSwapsG; j++){
+                    arrParticle[i].velocity[j][0] = newVelG[j][0];
+                    arrParticle[i].velocity[j][1] = newVelG[j][1];
+                }
+
+                // Lakukan cities swaps
+                applySwaps(arrParticle[i].pos, arrParticle[i].velocity, arrParticle[i].numSwaps);
+            }
         } else {
             // Menghentikan loop jika sudah stagnan
             break;
@@ -465,13 +473,13 @@ void tspPSO(City *arrC, double **arrD, char* kota_awal, int size){
     // Output: Kota yang harus ditempuh
     printf("Kota tempuh:\n");
     for(int i = 0; i < size; i++){
-        printf("%s->", arrC[gBest.bestPos[i]].name);
+        printf("%s -> ", arrC[gBest.bestPos[i]].name);
     }
     printf("%s\n", arrC[gBest.bestPos[0]].name);
     // Output: Jarak terpendek
-    printf("Jarak terpendek dari kota tempuh: \n");
+    printf("Jarak terpendek dari kota tempuh (km): \n");
     printf("%f\n", evalFitness(gBest.bestPos, arrD, size));
-    printf("Jarak terpendek yang seharusnya: \n");
+    printf("Jarak terpendek yang seharusnya (km): \n");
     printf("%f\n", gBest.fitnessVal);
     
     // Free arrFitness dan arrParticle
