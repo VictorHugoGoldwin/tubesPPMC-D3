@@ -18,11 +18,8 @@ Program menyelesaikan TSP dengan algoritma PSO
 // Definisi Macros
 #define STR_KOTA 25
 #define STR_FILE 12
-#define LEN_LINE 40
+#define LEN_LINE 50
 #define R 6371
-#define C1 2
-#define C2 2
-#define INERTIA_MAX 0.9
 #define STAG_INTERVAL 1000
 
 typedef struct City {
@@ -34,7 +31,8 @@ typedef struct Particle {
     int *pos;
     int *bestPos;
     double fitnessVal;
-    double *velocity;
+    int numSwaps;
+    int (*velocity)[2];
 } Particle;
 
 double degtoRad(double degree)
@@ -98,7 +96,8 @@ void readAndAssign(char **nama_file, char ***kotas, double **lat, double **longi
     // Jika file ada
     // User diminta untuk memasukkan kota yang dijadikan sebagai titik awal untuk TSP
     printf("Starting point: ");
-    scanf("%s",nama_kota);
+    getchar();
+    scanf("%[^\n]s",nama_kota);
 
     // Ekstrak data csv
     char *token;
@@ -189,27 +188,104 @@ void findIDKota(char *kota, int *id, City *arrCity, int size){
     }
 }
 
-void citySwapping(Particle *p, int posNow, int A, int B){
-    int temp = p[posNow].pos[A];
-    p[posNow].pos[A] = p[posNow].pos[B];
-    p[posNow].pos[B] = temp;
+void swapping(int *arr, int A, int B){
+    int temp = arr[A];
+    arr[A] = arr[B];
+    arr[B] = temp;
 }
 
-void updatePos(Particle *p, int posNow, int size, int idInit){
-    // Menghasilkan ID secara random
-    int cityID1;
-    cityID1 = rand () % size;
-    int cityID2;
-    cityID2 = rand () % size;
-    while(p[posNow].pos[cityID1] == idInit){
-        cityID1 = rand() % size;
+void copyArrtoArr(int **pBest, int *pCurr, int size){
+    for(int i = 0; i < size; i++){
+        (*pBest)[i] = pCurr[i];
     }
-    while(p[posNow].pos[cityID2] == idInit || cityID1 == cityID2){
+}
+
+void combineVelocities(int (*combined)[2], int *num_combined, int (*velocity1)[2], int num_swaps1, int (*velocity2)[2], int num_swaps2) {
+    // Menambah current particle's velocity swaps
+    *num_combined = 0;
+    for (int i = 0; i < num_swaps1; i++) {
+        combined[*num_combined][0] = velocity1[i][0];
+        combined[*num_combined][1] = velocity1[i][1];
+        (*num_combined)++;
+    }
+
+    // Menambah velocity swaps dari velocity2/velocity baru
+    *num_combined = 0;
+    for (int i = 0; i < num_swaps2; i++) {
+        combined[*num_combined][0] = velocity2[i][0];
+        combined[*num_combined][1] = velocity2[i][1];
+        (*num_combined)++;
+    }
+}
+
+void getSwaps(int *target, int *current, int (*swaps)[2], int *num_swaps, int size) {
+    // Membuat variabel sementara dan inisiasi dengan element-element current particle's array of city swaps
+    int temp[size];
+    for(int i = 0; i < size; i++){
+        temp[i] = current[i];
+    }
+
+    // Menentukan pasangan kota yang akan di-swap
+    *num_swaps = 0;
+    for (int i = 1; i < size-1; i++) {
+        if (temp[i] != target[i]) {
+            for (int j = i+1; j < size; j++) {
+                if (temp[j] == target[i]) {
+                    // Lakukan Swap
+                    swapping(temp, j, i);
+                    
+                    // Catat hasil city swapping
+                    // Jika jumlah swaps belum melebihi ukuran array of velocity, cata city swapping
+                    if(*num_swaps < (size)){
+                        swaps[*num_swaps][0] = i;
+                        swaps[*num_swaps][1] = j;
+                        (*num_swaps)++;
+                    } else {
+                        return;
+                    }
+                    break;
+                }
+            }
+        }
+    }
+}
+
+void applySwaps(int *pos, int (*swaps)[2], int swapsNum){
+    for(int i = 0; i < swapsNum; i++){
+        if(swaps[i][0] == 0 || swaps[i][1] == 0) continue;
+
+        swapping(pos, swaps[i][0], swaps[i][1]);
+    }
+}
+
+void randomPos(int *posArr, int idInit, int size){
+    // Menghasilkan ID secara random
+    int cityID1, cityID2;
+    cityID1 = rand () % size;
+    cityID2 = rand () % size;
+    while(posArr[cityID1] == idInit){
+        cityID1 = rand() % size;
+        }
+    while(posArr[cityID2] == idInit || posArr[cityID1] == posArr[cityID2]){
         cityID2 = rand() % size;
     }
-    
+
     // City swapping
-    citySwapping(p, posNow, cityID1, cityID2);
+    swapping(posArr, cityID1, cityID2);
+}
+
+double evalFitness(int *p, double **distCities, int size){
+    // Inisiasi data yang digunakan untuk mengevaluasi fitness
+    double totalDist = 0;
+
+    // Iterasi untuk menghitung jarak tempuh sampai semuanya telah dikunjungi dan kembali ke kota awal
+    for(int i = 0; i < (size); i++){
+        int idY = (i + 1) % size;
+        totalDist += distCities[p[i]][p[idY]];
+    }
+
+    // Assign fitness yang ter-updated ke partikel
+    return totalDist;
 }
 
 void initParticles(Particle **p, int size, int idAwal){
@@ -221,59 +297,47 @@ void initParticles(Particle **p, int size, int idAwal){
         // Inisiasi elemen partikel
         (*p)[i].pos = (int*)malloc((unsigned)(size)*sizeof(int));
         (*p)[i].bestPos = (int*)malloc((unsigned)(size)*sizeof(int));
-        (*p)[i].velocity = (double*)malloc((unsigned)(size)*sizeof(double));
+        (*p)[i].velocity = (int(*)[2])malloc((unsigned)(size)*sizeof(int[2]));
 
+        // Inisiasi position partikel
         // Iterasi awal untuk assign posisi partikel ke kota awal
         for(int j = 0; j < size; j++){
             (*p)[i].pos[j] = j;
         }
-
+        // Mencari posisi ID awal kota pada array of position partikel
+        int idAwalPos;
+        for(int j = 0; j < size; j++){
+            if((*p)[i].pos[j] == idAwal){
+                idAwalPos = j;
+            }
+        }
         // Swap ID kota awal ke posisi pertama
-        int tempIDSwap = (*p)[i].pos[0];
-        (*p)[i].pos[0] = (*p)[i].pos[idAwal];
-        (*p)[i].pos[idAwal] = tempIDSwap;
-
+        swapping((*p)[i].pos, idAwalPos, 0);
         // Iterasi shuffle posisi kota yang dapat dikunjungi oleh setiap partikel
         // Memastikan tidak ada ID kota yang sama dengan ID kota awal yang diinput User
         for(int j = 1; j <  size; j++){
             // Assignment dilakukan dengan menukar posisi kota-kota
-            updatePos(*p, i, size, idAwal);
+            // Menghasilkan ID secara random
+            randomPos((*p)[i].pos, idAwal, size);
         }
 
-        // Assign array best position sama dengan array position
-        for(int j = 0; j < (size); j++){
-            (*p)[i].bestPos[j] = (*p)[i].pos[j];
-        }
+        // Inisiasi personal best position partikel dengan initial position partikel
+        copyArrtoArr(&((*p)[i].bestPos), (*p)[i].pos, size);
 
-        // Assign velocity awal untuk setiap partikel sebagai nol
-        int maxVelocity = size/10;
-        for(int j = 0; j < (size); j++){
-            (*p)[i].velocity[j] = ((double)rand() / RAND_MAX) * maxVelocity - maxVelocity / 2.0;
-        }
-
+        // Assign jumlah penukaran order of cities to be visited awal untuk setiap partikel sebagai nol
+        (*p)[i].numSwaps = 0;
+        
         // Assign fitness setiap partikel nilai awalnya
         (*p)[i].fitnessVal = __INT32_MAX__;
     }
-}
-
-void evalFitness(Particle *p, double **distCities, int size){
-    // Inisiasi data yang digunakan untuk mengevaluasi fitness
-    double totalDist = 0;
-
-    // Iterasi untuk menghitung jarak tempuh sampai semuanya telah dikunjungi dan kembali ke kota awal
-    for(int i = 0; i < (size); i++){
-        int idY = (i + 1) % size;
-        totalDist += distCities[p->pos[i]][p->pos[idY]];
-    }
-
-    // Assign fitness yang ter-updated ke partikel
-    p->fitnessVal = totalDist;
 }
 
 void tspPSO(City *arrC, double **arrD, char* kota_awal, int size){
     // Inisiasi data-data untuk PSO
     Particle *arrParticle = NULL;
     Particle gBest;
+    int newVelG[size][2];
+    int gBestDiff[size][2];
 
     // Mendefinisikan iterasi maksimal dan array untuk menyimpan fitness
     // Maksimal iterasi bisa diubah-ubah
@@ -281,7 +345,7 @@ void tspPSO(City *arrC, double **arrD, char* kota_awal, int size){
     if(factorial(size) > INT_MAX){
         maxIterations = INT_MAX;
     } else {
-        maxIterations = 100000000;
+        maxIterations = 1000000;
     }
 
     // Inisiasi variabel yang dapat memberhentikan iterasi PSO
@@ -299,77 +363,100 @@ void tspPSO(City *arrC, double **arrD, char* kota_awal, int size){
 
     // Iterasi sampai MAX_ITER untuk algoritma PSO
     for(int iterations = 0; iterations < maxIterations; iterations++){
-        // Inisiasi awal global best dan beberapa variabel yang dapat menghentikan iterasi PSO
-        if(iterations == 0 || gBest.fitnessVal > arrParticle[0].fitnessVal){
+        // Inisiasi global best
+        if(iterations == 0){
             gBest = arrParticle[0];
         }
 
-        // Meng-update fitness, best position, global best, position, dan velocity
-        for(int i = 0; i < (size); i++){
-            // Menyimpan fitness sekarang (sebelum di-update) untuk menentukan best position
-            Particle curr = arrParticle[i];
+        if(countStagnant <= (size*STAG_INTERVAL)/10){
+            // Assign global best fitness ke arrFitness
+            arrFitness[iterations] = gBest.fitnessVal;
 
-            // Meng-update fitness setiap partikel
-            evalFitness(&(arrParticle[i]), arrD, size);
+            // Mengecek stagnansi setiap STAG_INTERVAL*size iterasi
+            if (iterations % (STAG_INTERVAL*size) == 0 && iterations > 0){
+                // Mengambil nilai fitness yang terkecil pada 1000 iterasi ke n
+                double optimumFitness = __INT32_MAX__;
+                for(int i = iterations - (size*STAG_INTERVAL); i < iterations; i++){
+                    if (arrFitness[i] < optimumFitness){
+                        optimumFitness = arrFitness[i];
+                    }
+                }
 
-            // Menentukan personal best position setiap partikel
-            if(curr.fitnessVal < arrParticle[i].fitnessVal){
-                // Assign personal best fitness dari current partikel yang belum dievaluasi 
-                // ke current partikel yang sudah dievaluasi
-                arrParticle[i].fitnessVal = curr.fitnessVal;
-
-                // Assign personal best position dari current partikel yang belum dievaluasi 
-                // ke current partikel yang sudah dievaluasi
-                for(int j = 0; j < (size); j++){
-                    arrParticle[i].bestPos[j] = curr.pos[j];
+                // Jika nilai fitness global best particle lebih kecil atau sama dengan optimumFitness pada 1000 iterasi ke n,
+                // counter stagnansi bertambah
+                if(gBest.fitnessVal <= optimumFitness){
+                    countStagnant++;
+                } else {
+                    countStagnant = 0;
                 }
             }
 
-            // Menentukan global best position untuk populasi partikel dan cek stagnansi
-            if(arrParticle[i].fitnessVal < gBest.fitnessVal){
-                // Assign current partikel sebagai global best particle
-                gBest = arrParticle[i];
-            }
+            // Meng-update partikel jika belum stagnan
+            for(int i = 0; i < (size); i++){
+                // Menyimpan fitness sekarang (sebelum di-update) untuk menentukan best position
+                Particle curr = arrParticle[i];
 
-            // Meng-update velocity dan position
-            for(int j = 0; j < (size); j++){
-                // Meng-update velocity
-                arrParticle[i].velocity[j] = (INERTIA_MAX*arrParticle[i].velocity[j])
-                +(C1*((double) rand()/RAND_MAX)*(arrParticle[i].bestPos[j] - arrParticle[i].pos[j]))
-                +(C2*((double) rand()/RAND_MAX)*(gBest.pos[j]- arrParticle[i].pos[j]));
+                // Meng-update fitness setiap partikel
+                curr.fitnessVal = evalFitness(curr.pos, arrD, size);
+
+                // Menentukan personal best position setiap partikel
+                if(curr.fitnessVal < arrParticle[i].fitnessVal){
+                    // Assign personal best fitness dari current partikel yang belum dievaluasi 
+                    // ke current partikel yang sudah dievaluasi
+                    arrParticle[i].fitnessVal = curr.fitnessVal;
+                    copyArrtoArr(&(arrParticle[i].bestPos), curr.pos, size);
+                }
+
+                // Menentukan global best position untuk populasi partikel
+                if(arrParticle[i].fitnessVal < gBest.fitnessVal){
+                    // Copy current particle ke partikel global best
+                    copyArrtoArr(&(gBest.pos), arrParticle[i].pos, size);
+                    copyArrtoArr(&(gBest.bestPos), arrParticle[i].bestPos, size);
+                    gBest.fitnessVal = evalFitness(gBest.pos, arrD, size);
+                }
+
+                // Randomize global best dan update global best's best position
+                // Inisiasi variabel yanng menampung global best sebelum di-random
+                Particle currG = gBest;
+                // Randomize variabel tersebut
+                randomPos(currG.pos, idKotaAwal, size);
+                currG.fitnessVal = evalFitness(currG.pos, arrD, size);
+                if(currG.fitnessVal < gBest.fitnessVal){
+                    // Copy current global best ke partikel global best sebelum di-random
+                    gBest.fitnessVal = currG.fitnessVal;
+                    copyArrtoArr(&(gBest.bestPos), currG.pos, size);
+                }
                 
-                // Meng-update posisi dengan menukar urutan kunjungan kota jika velocity tidak bernilai nol
-                // Velocity yang tidak bernilai nol berarti kota yang harus dikunjungi belum tepat
-                if((int)arrParticle[i].velocity[j] != 0){
-                    updatePos(arrParticle, i, size, idKotaAwal);
+                // Meng-update velocity dan position
+                // Inisiasi variabel-variabel untuk velocity update
+                int newSwapsG = 0;
+                int gBestSwaps = 0;
+                for(int j = 0; j < size; j++){
+                    newVelG[j][0] = gBestDiff[j][0] = 0;
+                    newVelG[j][1] = gBestDiff[j][1] = 0;
                 }
-            }
-        }
 
-        // Assign global best fitness ke arrFitness
-        arrFitness[iterations] = gBest.fitnessVal;
+                // Lakukan swapping cities berdasarkan global best's position 
+                // Mencari pasangan cities yang mungkin di-swap berdasarkan global best position
+                getSwaps(gBest.pos, arrParticle[i].pos, gBestDiff, &gBestSwaps, size);
 
-        // Mengecek stagnansi setiap 1000 iterasi
-        if (iterations % STAG_INTERVAL == 0 && iterations > 0){
-            // Mengambil nilai fitness yang terkecil pada 1000 iterasi ke n
-            double optimumFitness = __INT32_MAX__;
-            for(int i = iterations - STAG_INTERVAL; i < iterations; i++){
-                if (arrFitness[i] < optimumFitness){
-                    optimumFitness = arrFitness[i];
+                // Menggabung cities swaps personal best dan cities swaps global best
+                combineVelocities(newVelG, &newSwapsG, arrParticle[i].velocity, arrParticle[i].numSwaps, gBestDiff, gBestSwaps);
+
+                // Assign jumlah cities swaps yang harus dilakukan ke current particle
+                arrParticle[i].numSwaps = newSwapsG;
+
+                // Assign cities swaps ke current particle's velocity
+                for(int j = 0; j < newSwapsG; j++){
+                    arrParticle[i].velocity[j][0] = newVelG[j][0];
+                    arrParticle[i].velocity[j][1] = newVelG[j][1];
                 }
-            }
 
-            // Jika nilai fitness global best particle lebih kecil atau sama dengan optimumFitness pada 1000 iterasi ke n,
-            // counter stagnansi bertambah
-            if(gBest.fitnessVal <= optimumFitness){
-                countStagnant++;
-            } else {
-                countStagnant = 0;
-            }
-        }
-
-        // Menghentikan loop jika sudah stagnan
-        if(countStagnant >= size){
+                // Lakukan cities swaps
+                applySwaps(arrParticle[i].pos, arrParticle[i].velocity, arrParticle[i].numSwaps);
+            }   
+        } else {
+            // Menghentikan loop jika sudah stagnan
             break;
         }
     }
@@ -378,16 +465,17 @@ void tspPSO(City *arrC, double **arrD, char* kota_awal, int size){
     // Output: Kota yang harus ditempuh
     printf("Kota tempuh:\n");
     for(int i = 0; i < size; i++){
-        printf("%d ", gBest.pos[i]);
-        printf("%s->", arrC[gBest.pos[i]].name);
+        printf("%s->", arrC[gBest.bestPos[i]].name);
     }
-    printf("%s", arrC[gBest.pos[0]].name);
+    printf("%s\n", arrC[gBest.bestPos[0]].name);
     // Output: Jarak terpendek
-    printf("\n");
-    printf("Jarak terpendek: \n");
+    printf("Jarak terpendek dari kota tempuh: \n");
+    printf("%f\n", evalFitness(gBest.bestPos, arrD, size));
+    printf("Jarak terpendek yang seharusnya: \n");
     printf("%f\n", gBest.fitnessVal);
     
-    // Free arrFitness
+    // Free arrFitness dan arrParticle
+    free(arrParticle);
     free(arrFitness);
 }
 
@@ -396,27 +484,31 @@ void timeRun(clock_t start, clock_t stop){
     printf("Time Elapsed: %f s", totalTime);
 }
 
-void deallocateMemChar(char **A, int size){
+void deallocateMemChar(char ***A, int size){
     // Dealokasi memori untuk matriks
     for(int i = 0; i < size; i++){
-        free(A[i]);
+        free((*A)[i]);
    }
-    free(A);
+    free(*A);
+    *A = NULL;
 }
 
-void deallocateMemCity(City *A, int size){
+void deallocateMemCity(City **A, int size){
     // Dealokasi memori untuk matriks
     for(int i = 0; i < size; i++){
-        free(A[i].name);
+        free((*A)[i].name);
    }
-    free(A);
+    free(*A);
+    *A = NULL;
 }
 
-void deallocateMemDoub(double **A, int size){
+void deallocateMemDoub(double ***A, int size){
     // Dealokasi memori untuk matriks
     for(int i = 0; i < size; i++){
-        free((A)[i]);
+        free((*A)[i]);
     }
+    free(*A);
+    *A = NULL;
 }
 
 int main()
@@ -440,22 +532,12 @@ int main()
     double **arrDistCities = NULL;
     assignAgain(nama_kotas, latitude, longitude, fileSize, &arrCities, &arrDistCities);
 
-    // Test untuk prosedur distanceCities
-    for(int i = 0; i < fileSize; i++){
-        printf("%d %s\n", arrCities[i].id, arrCities[i].name);
-        for(int j = 0; j < fileSize; j++){
-            printf("%f ", arrDistCities[i][j]);
-        }
-        printf("\n");
-    }
-    // return 0;
-
     // TSP: PSO, Output, dan Waktu
     // Memulai pencatatan waktu
     clock_t startTime = clock();
     // Eksekusi algoritma
     tspPSO(arrCities, arrDistCities, kota_awal, fileSize);
-    // Pencatatan waktu berhenti
+    // Pencatatan waktu berhenti    
     clock_t endTime = clock();
     // Penghitungan waktu dan output waktu total eksekusi algoritma
     timeRun(startTime, endTime);
@@ -463,13 +545,13 @@ int main()
     // Dealokasi memori untuk semua variabel untuk pembacaan CSV
     free(nama_file);
     free(kota_awal);
-    deallocateMemChar(nama_kotas, fileSize);
+    deallocateMemChar(&nama_kotas, fileSize);
     free(latitude);
     free(longitude);
 
     // Dealokasi memori untuk semua variabel yang digunakan untuk algoritma
-    deallocateMemDoub(arrDistCities, fileSize);
-    deallocateMemCity(arrCities, fileSize);
+    deallocateMemDoub(&arrDistCities, fileSize);
+    deallocateMemCity(&arrCities, fileSize);
 
     return 0;
 }
