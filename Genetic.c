@@ -7,7 +7,7 @@
 
 #define strKota 25
 #define r 6371
-#define POPULATION_SIZE 10000
+#define POPULATION_SIZE 1000
 #define MUTATION_RATE 0.1
 #define MAX_GENERATIONS 100
 #define M_PI 3.14159265358979323846
