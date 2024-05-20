@@ -17,6 +17,7 @@
 #define bool _Bool
 #define strKota 25
 #define r 6371
+#define M_PI 3.14159265358979323846
 double minDist = 99999999999999999999.0;
 
 #define ALPHA 1.0  // Pheromone importance
@@ -113,7 +114,7 @@ double ant_tour(int num_cities, int starting_point, double distances[num_cities]
     return tour_distance;
 }
 
-void print_best_tour(int num_cities, char cities[num_cities][strKota], char starting_point[strKota], int best_tour[]) {
+void print_best_tour(int num_cities, char** cities, char starting_point[strKota], int best_tour[]) {
     printf("Best tour: ");
     for (int i = 0; i < num_cities; i++) {
         printf("%s -> ", cities[best_tour[i]]);
@@ -240,7 +241,6 @@ int main()
             clock_t end_time = clock();
 
             // Output path
-            printf("\nBest route :\n");
             print_best_tour(max_index, kota, nama_kota, best_tour);
 
             printf("%s\n",kota[start_index]);
