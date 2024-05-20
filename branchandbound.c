@@ -1,3 +1,15 @@
+/*EL2208 Praktikum Pemecahan Masalah dengan C 2023/2024
+*Modul            : 9 - Tugas Besar
+*Hari dan Tanggal : Jumat, 10 Mei 2024
+*Nama (NIM)       : Olivia Alexandra Silalahi (13222082)
+*Asisten (NIM)    : Isnaini Azhar Ramadhan Wijaya (18321016)
+*Nama File        : branchandbound.c
+*Deskripsi        : Membuat program menyelesaikan Travelling Salesman Problem dengan Algoritma Branch And Bound
+*/
+
+
+
+
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
