@@ -1,158 +1,125 @@
+/*EL2208 Praktikum Pemecahan Masalah dengan C 2023/2024
+*Modul            : 9 - Tugas Besar
+*Hari dan Tanggal : 
+*Nama (NIM)       : Rafi Ananta Alden (13222087)
+*Asisten (NIM)    : Isnaini Azhar Ramadhan Wijaya (18321016)
+*Nama File        : ACO.c
+*Deskripsi        : Program untuk menyelesaikan Travelling Salesman Problem (TSP) dengan menggunakan algoritma Ant Colony Optimization (ACO)
+*/
+
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <time.h>
 
-#define _USE_MATH_DEFINES
+#define bool _Bool
 #define strKota 25
 #define r 6371
+#define M_PI 3.14159265358979323846
 double minDist = 99999999999999999999.0;
 
-struct Ants {
-   int ant_index;
-   int ant_path[strKota];
-   char ant_city[strKota];
-};
+#define ALPHA 1.0  // Pheromone importance
+#define BETA 2.0   // Heuristic importance
+#define RHO 0.5    // Evaporation rate
+#define Q 100      // Pheromone deposit factor
+#define ANT_COUNT 10
+#define MAX_ITERATIONS 100
 
 double degtoRad(double degree)
 {
-    return degree * 3.14 / 180.0;
+    return degree * M_PI / 180.0;
 }
 
 double calcDistance(double lat1, double lat2, double long1, double long2)
 {
-    return 2 * r * asin(sqrt(pow(sin((lat1 - lat2) / 2), 2) + cos(lat1) * cos(lat2) * pow(sin((long1 - long2) / 2), 2)));
+    return 2*r*asin(sqrt(pow(sin((lat1-lat2)/2),2) + cos(lat1)*cos(lat2)*pow(sin((long1-long2)/2),2)));
 }
 
-// Fungsi untuk menghitung panjang rute dari sebuah jalur
-double calculate_distance(int* path, double** distances, size_t num_cities)
-{
-    double distance = 0.0;
-    for (size_t i = 0; i < num_cities - 1; i++)
-        distance += distances[path[i]][path[i + 1]];
-    distance += distances[path[num_cities - 1]][path[0]]; // Kembali ke kota awal
-    return distance;
+void initialize_pheromones(int num_cities, double pheromones[num_cities][num_cities]) {
+    for (int i = 0; i < num_cities; i++) {
+        for (int j = 0; j < num_cities; j++) {
+            pheromones[i][j] = 0.1;
+        }
+    }
 }
 
-// Fungsi untuk menginisialisasi feromon awal antarkota
-void initialize_pheromones(double **pheromones, size_t num_cities)
-{
-    for (size_t i = 0; i < num_cities; i++)
-    {
-        for (size_t j = 0; j < num_cities; j++)
-            pheromones[i][j] = 1.0;
-    }    
+void update_pheromones(int num_cities, double pheromones[num_cities][num_cities], int ant_tours[][num_cities], double tour_distances[]) {
+    for (int i = 0; i < num_cities; i++) {
+        for (int j = 0; j < num_cities; j++) {
+            pheromones[i][j] *= (1.0 - RHO);
+        }
+    }
+    for (int k = 0; k < ANT_COUNT; k++) {
+        for (int i = 0; i < num_cities; i++) {
+            int current_city = ant_tours[k][i];
+            int next_city = ant_tours[k][(i + 1) % num_cities];
+            pheromones[current_city][next_city] += Q / tour_distances[k];
+            pheromones[next_city][current_city] += Q / tour_distances[k];
+        }
+    }
 }
 
-// Fungsi untuk memilih kota selanjutnya berdasarkan aturan probabilitas
-char* select_next_city(char** kota, char* current_city, char** visited_cities, double** pheromones, double** distances, size_t num_cities)
-{
-    double* probabilities = (double*)calloc(num_cities, sizeof(double));
+void calculate_probabilities(int num_cities, double pheromones[num_cities][num_cities], double distances[num_cities][num_cities], double probabilities[num_cities][num_cities]) {
+    for (int i = 0; i < num_cities; i++) {
+        for (int j = 0; j < num_cities; j++) {
+            if (i != j) {
+                double pheromone = pow(pheromones[i][j], ALPHA);
+                double distance = pow(1.0 / distances[i][j], BETA);
+                probabilities[i][j] = pheromone * distance;
+            } else {
+                probabilities[i][j] = 0.0;
+            }
+        }
+    }
+}
+
+int select_next_city(int num_cities, double probabilities[num_cities][num_cities], int ant_id, bool visited[]) {
     double sum = 0.0;
-    char* next_city = NULL; // Perbaikan 1: Menggunakan char* untuk next_city
-
-    for (size_t i = 0; i < num_cities; i++)
-    {
-        if (!visited_cities[i])
-        {
-            if (distances[i][i] != 0)
-            {
-                probabilities[i] = pheromones[i][i] / distances[i][i];
-                sum += probabilities[i];
+    for (int i = 0; i < num_cities; i++) {
+        if (!visited[i]) {
+            sum += probabilities[ant_id][i];
+        }
+    }
+    double rand_num = (double)rand() / RAND_MAX;
+    double partial_sum = 0.0;
+    for (int i = 0; i < num_cities; i++) {
+        if (!visited[i]) {
+            partial_sum += probabilities[ant_id][i];
+            if (rand_num <= partial_sum / sum) {
+                return i;
             }
         }
     }
-
-    double random_value = ((double)rand() / RAND_MAX) * sum;
-    double cumulative_probability = 0.0;
-    for (size_t i = 0; i < num_cities; i++)
-    {
-        if (!visited_cities[i])
-        {
-            cumulative_probability += probabilities[i];
-            if (cumulative_probability >= random_value)
-            {
-                next_city = strdup(kota[i]); // Perbaikan 2: Gunakan strdup untuk menyalin string
-                break;
-            }
-        }
-    }
-
-    free(probabilities);
-    return next_city; // Perbaikan 3: Mengembalikan alamat memori yang telah dialokasikan
+    return -1;
 }
 
-// Fungsi untuk memperbarui jejak feromon setelah semua semut selesai menjelajah
-void update_pheromones(double** pheromones, struct Ants* ant, double** distances, double evaporation_rate, size_t num_cities)
-{
-    for (size_t i = 0; i < num_cities; i++)
-    {
-        for (size_t j = 0; j < num_cities; j++)
-            pheromones[i][j] *= (1.0 - evaporation_rate); // Penguapan feromon
+double ant_tour(int num_cities, int starting_point, double distances[num_cities][num_cities], double probabilities[num_cities][num_cities], int ant_id, int tour[]) {
+    bool visited[num_cities];
+    for (int i = 0; i < num_cities; i++) {
+        visited[i] = false;
     }
-    for (size_t k = 0; k < num_cities; k++)
-    {
-        double distance = calculate_distance(ant[k].ant_path, distances, num_cities);
-        for (size_t i = 0; i < num_cities - 1; i++)
-        {
-            pheromones[ant[k].ant_path[i]][ant[k].ant_path[i+1]] += (1.0 / distance); // Penambahan feromon
-            pheromones[ant[k].ant_path[i+1]][ant[k].ant_path[i]] += (1.0 / distance); // Karena grafik tidak berarah
-        }
-        pheromones[ant[k].ant_path[num_cities - 1]][ant[k].ant_path[0]] += (1.0 / distance); // Kembali ke kota awal
-        pheromones[ant[k].ant_path[0]][ant[k].ant_path[num_cities - 1]] += (1.0 / distance); // Karena grafik tidak berarah
+    visited[starting_point] = true;
+    tour[0] = starting_point;
+    double tour_distance = 0.0;
+    for (int i = 1; i < num_cities; i++) {
+        int next_city = select_next_city(num_cities, probabilities, ant_id, visited);
+        tour[i] = next_city;
+        visited[next_city] = true;
+        tour_distance += distances[starting_point][next_city];
+        starting_point = next_city;
     }
+    tour_distance += distances[starting_point][0]; // Return to starting city
+    return tour_distance;
 }
 
-void ACO(char** kota, size_t num_cities, char* current_city, double** distances, int* path, double** pheromones, int max_iterations, double evaporation_rate)
-{
-    // Inisialisasi feromon awal
-    initialize_pheromones(pheromones, num_cities);
-
-    // Algoritma ACO
-    char** visited_cities = (char**)calloc(num_cities, sizeof(char*));
-    // Allocate memory for n Ants structs
-    struct Ants* ants = (struct Ants*)calloc(num_cities, sizeof(struct Ants));
-    // Check if memory allocation was successful
-    if (ants == NULL || visited_cities == NULL) {
-        printf("Error: Memory allocation failed.\n");
-        return;
+void print_best_tour(int num_cities, char** cities, char starting_point[strKota], int best_tour[]) {
+    printf("Best tour: ");
+    for (int i = 0; i < num_cities; i++) {
+        printf("%s -> ", cities[best_tour[i]]);
     }
-
-    for (int iter = 0; iter < max_iterations; iter++)
-    {
-        // Semut menjelajah
-        for (size_t k = 0; k < num_cities; k++)
-        {
-            ants[k].ant_index = k;
-            strcpy(ants[k].ant_city, current_city);
-            visited_cities[k] = current_city;
-            for (size_t i = 1; i < num_cities; i++)
-            {
-                char* next_city = select_next_city(kota, current_city, visited_cities, pheromones, distances, num_cities);
-                strcpy(ants[k].ant_city, next_city); // Perbaikan 1: Menyalin string ke ants[k].ant_city
-                visited_cities[i] = next_city;
-                current_city = next_city; // Perbaikan 2: Memperbarui current_city setelah menjelajahi semua kota
-            }
-        }
-
-        // Memperbarui jejak feromon
-        update_pheromones(pheromones, ants, distances, evaporation_rate, num_cities);
-
-        // Memeriksa apakah rute saat ini lebih baik dari yang sebelumnya
-        double current_distance = calculate_distance(ants[0].ant_path, distances, num_cities);
-        if (current_distance < minDist)
-        {
-            minDist = current_distance;
-            for (size_t i = 0; i < num_cities; i++)
-            {
-                path[i] = ants[i].ant_path[i]; // Menyimpan rute terbaik
-            }
-        }
-    }
-
-    free(visited_cities);
-    free(ants);
+    printf("%s\n", starting_point);
 }
 
 int main()
@@ -160,170 +127,128 @@ int main()
     char** kota;
     double* latitude;
     double* longitude;
+    double* distance;
 
     char nama_file[12];
     printf("Nama file berisi kota untuk di kunjungi : ");
-    scanf("%s", nama_file);
-    FILE* file = fopen(nama_file, "r");
+    scanf("%s",nama_file);
+    FILE* file = fopen(nama_file,"r");
 
     // Mengambil bagian extension/format file user
     char* token;
-    token = strtok(nama_file, ".");
-    token = strtok(NULL, "\n");
-
+    token = strtok(nama_file,".");
+    token = strtok(NULL,"\n");
+    
     // Jika input bukan format file (Tanpa ".")
-    if (token == NULL)
-        printf("\nInput bukan file.\n");
+    if (token == NULL) printf("\nInput bukan file.\n");
     // Jika format bukan csv
-    else if (strcmp(token, "csv") != 0)
-    {
-        printf("\nFormat file bukan csv.\n");
-    }
+    else if (strcmp(token,"csv") != 0) {printf("\nFormat file bukan csv.\n");}
     // Jika file tidak ada
-    else if (file == NULL)
-    {
-        printf("\nFile yang diberikan tidak ada.\n");
-    }
-    else
-    {
+    else if (file == NULL) {printf("\nFile yang diberikan tidak ada.\n");}
+    else {
         // Input nama kota
         char nama_kota[strKota];
         printf("Starting point : ");
         getchar();
-        fgets(nama_kota, sizeof(nama_kota), stdin);
-        nama_kota[strcspn(nama_kota, "\n")] = 0; // Menghapus newline character
-
+        scanf("%[^\n]s",nama_kota);
 
         char temp[50];
         // Deklarasi variabel untuk operasi ekstrak data csv
-        int valid = 0;
-        int max_index = 0;
-        int start_index = 0;
-
+        int valid = 0;int max_index = 0;int start_index = 0;
 
         // Ekstrak data csv
-        while (fgets(temp, 50, file))
-        {
+        while(fgets(temp,50,file)) {
             // Alokasi memori untuk kota,latitude,longitude
-            if (max_index == 0)
-            {
-                kota = (char **)malloc(sizeof(char *));
-                kota[max_index] = (char *)malloc(strKota * sizeof(char));
-                latitude = (double *)malloc(sizeof(double));
-                longitude = (double *)malloc(sizeof(double));
+            if (max_index == 0) {
+                kota = (char**) malloc (sizeof(char*));
+                kota[max_index] = (char*) malloc (strKota * sizeof(char));
+                latitude = (double*) malloc (sizeof(double));
+                longitude = (double*) malloc (sizeof(double));
+            }        
+            else {
+                kota = (char**) realloc (kota, (max_index+1)*sizeof(char*));
+                kota[max_index] = (char*) malloc (strKota * sizeof(char));
+                latitude = (double*) realloc (latitude, (max_index+1)*sizeof(double));
+                longitude = (double*) realloc (longitude, (max_index+1)*sizeof(double));
             }
-            else
-            {
-                kota = (char **)realloc(kota, (max_index + 1) * sizeof(char *));
-                kota[max_index] = (char *)malloc(strKota * sizeof(char));
-                latitude = (double *)realloc(latitude, (max_index + 1) * sizeof(double));
-                longitude = (double *)realloc(longitude, (max_index + 1) * sizeof(double));
-            }
-        
-            token = strtok(temp, ",");
-            strcpy(kota[max_index], token);
+
+            token = strtok(temp,",");
+            strcpy(kota[max_index],token);
             // Mengecek nama kota ada di list atau tidak
-            if (strcmp(token, nama_kota) == 0)
-            {
+            if (strcmp(token,nama_kota) == 0) {
                 valid = 1;
                 start_index = max_index;
             }
 
-            token = strtok(NULL, ",");
+            token = strtok(NULL,",");
             latitude[max_index] = degtoRad(atof(token));
-            token = strtok(NULL, "\n");
+            token = strtok(NULL,"\n");
             longitude[max_index] = degtoRad(atof(token));
             max_index++;
         }
 
         fclose(file);
         // Data kosong
-        if (max_index == 0)
-        {
-            printf("\nFile yang diberikan kosong.\n");
-        }
+        if (max_index == 0) {printf("\nFile yang diberikan kosong.\n");}
 
         // Data hanya 1
-        else if (max_index == 1)
-        {
-            printf("\nKota hanya satu, tidak bisa dioperasikan.\n");
-        }
-
+        else if (max_index == 1) {printf("\nKota hanya satu, tidak bisa dioperasikan.\n");}
+        
         // Jika kota diinput tidak ada
-        else if (!valid)
-        {
-            printf("\nKota yang diinput tidak ada dalam file.\n");
-        }
+        else if (!valid) {printf("\nKota yang diinput tidak ada dalam file.\n");}
 
-        else
-        {
+        else {
             // Waktu mulai mencari solusi
             clock_t start_time = clock();
 
-            // Deklarasi Variabel untuk DFS
-            int path[max_index];
-            int** ants = (int**)malloc(max_index * sizeof(int*));
-            for (int i = 0; i < max_index; i++)
-            {
-                ants[i] = (int*)malloc(max_index * sizeof(int));
-            }
-            double** distances = (double**)malloc(max_index * sizeof(double *));
-            for (int i = 0; i < max_index; i++)
-            {
-                distances[i] = (double*)malloc(max_index * sizeof(double));
-            }
-            for (int i = 0; i < max_index; i++)
-            {
-                for (int j = 0; j < max_index; j++)
-                {
+            // Membuat matriks jarak antarkota
+            double distances[max_index][max_index];
+            for (int i = 0; i < max_index; i++) {
+                for (int j = 0; j < max_index; j++) {
                     if (i != j)
-                    {
                         distances[i][j] = calcDistance(latitude[i], latitude[j], longitude[i], longitude[j]);
-                    }
                     else
-                    {
                         distances[i][j] = 0;
-                    }
                 }
             }
-            
 
-            // Rekursif DFS-Bruteforce
-            int best_path[max_index];
-            double** pheromones = (double**)malloc(max_index * sizeof(double *));
-            for (int i = 0; i < max_index; i++)
-            {
-                pheromones[i] = (double*)malloc(max_index * sizeof(double));
+            double pheromones[max_index][max_index];
+            double probabilities[max_index][max_index];
+
+            initialize_pheromones(max_index, pheromones);
+            calculate_probabilities(max_index, pheromones, distances, probabilities); // Perubahan #1
+
+            int best_tour[max_index];
+            double best_distance = -1;
+
+            for (int iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
+                int ant_tours[ANT_COUNT][max_index];
+                double tour_distances[ANT_COUNT];
+                for (int ant_id = 0; ant_id < ANT_COUNT; ant_id++) {
+                    tour_distances[ant_id] = ant_tour(max_index, start_index, distances, probabilities, ant_id, ant_tours[ant_id]);
+                    if (best_distance == -1 || tour_distances[ant_id] < best_distance) {
+                        best_distance = tour_distances[ant_id];
+                        for (int i = 0; i < max_index; i++) {
+                            best_tour[i] = ant_tours[ant_id][i];
+                        }
+                    }
+                }
+                update_pheromones(max_index, pheromones, ant_tours, tour_distances);
+                calculate_probabilities(max_index, pheromones, distances, probabilities);
             }
-
-            ACO(kota, max_index, nama_kota, distances, best_path, pheromones, 100, 0.5);
-
+            
             // Waktu selesai mencari solusi
             clock_t end_time = clock();
 
             // Output path
-            printf("\nBest route :\n");
-            for (int i = 0; i < max_index; i++)
-            {
-                printf("%s -> ", best_path[i]);
-            }
-            printf("%s\n", kota[start_index]);
-            printf("\nTotal distance : %.4f km\n", minDist);
+            print_best_tour(max_index, kota, nama_kota, best_tour);
+
+            printf("%s\n",kota[start_index]);
+            printf("\nTotal distance : %.4f km\n",best_distance);
 
             // Menghitung waktu yang diperlukan
             double execution_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
-            printf("Time elapsed : %.3f s", execution_time);
-
-            // Free memory
-            for (int i = 0; i < max_index; i++)
-            {
-                free(ants[i]);
-                free(pheromones[i]);
-            }
-            free(ants);
-            free(pheromones);
+            printf("Time elapsed : %.3f s",execution_time);
         }
     }
-
-    return 0;
 }
